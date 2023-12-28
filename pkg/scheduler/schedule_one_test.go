@@ -91,6 +91,7 @@ type fakeExtender struct {
 	interestedPodName string
 	ignorable         bool
 	gotBind           bool
+	isPrioritizer     bool
 }
 
 func (f *fakeExtender) Name() string {
@@ -113,13 +114,13 @@ func (f *fakeExtender) SupportsPreemption() bool {
 	return false
 }
 
-func (f *fakeExtender) Filter(pod *v1.Pod, nodes []*v1.Node) ([]*v1.Node, extenderv1.FailedNodesMap, extenderv1.FailedNodesMap, error) {
+func (f *fakeExtender) Filter(pod *v1.Pod, nodes []*framework.NodeInfo) ([]*framework.NodeInfo, extenderv1.FailedNodesMap, extenderv1.FailedNodesMap, error) {
 	return nil, nil, nil, nil
 }
 
 func (f *fakeExtender) Prioritize(
 	_ *v1.Pod,
-	_ []*v1.Node,
+	_ []*framework.NodeInfo,
 ) (hostPriorities *extenderv1.HostPriorityList, weight int64, err error) {
 	return nil, 0, nil
 }
@@ -138,6 +139,10 @@ func (f *fakeExtender) IsBinder() bool {
 
 func (f *fakeExtender) IsInterested(pod *v1.Pod) bool {
 	return pod != nil && pod.Name == f.interestedPodName
+}
+
+func (f *fakeExtender) IsPrioritizer() bool {
+	return f.isPrioritizer
 }
 
 type falseMapPlugin struct{}
@@ -1627,11 +1632,11 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 			extenders: []tf.FakeExtender{
 				{
 					ExtenderName: "FakeExtender1",
-					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *v1.Node) *framework.Status {
-						if node.Name == "a" {
+					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+						if node.Node().Name == "a" {
 							return framework.NewStatus(framework.Success)
 						}
-						return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Name))
+						return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 					}},
 				},
 			},
@@ -1648,14 +1653,14 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 			extenders: []tf.FakeExtender{
 				{
 					ExtenderName: "FakeExtender1",
-					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *v1.Node) *framework.Status {
-						if node.Name == "a" {
+					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+						if node.Node().Name == "a" {
 							return framework.NewStatus(framework.Success)
 						}
-						if node.Name == "b" {
-							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Name))
+						if node.Node().Name == "b" {
+							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 						}
-						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Name))
+						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 					}},
 				},
 			},
@@ -1673,14 +1678,14 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 			extenders: []tf.FakeExtender{
 				{
 					ExtenderName: "FakeExtender1",
-					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *v1.Node) *framework.Status {
-						if node.Name == "a" {
+					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+						if node.Node().Name == "a" {
 							return framework.NewStatus(framework.Success)
 						}
-						if node.Name == "b" {
-							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Name))
+						if node.Node().Name == "b" {
+							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 						}
-						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Name))
+						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 					}},
 				},
 			},
@@ -1700,23 +1705,23 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 			extenders: []tf.FakeExtender{
 				{
 					ExtenderName: "FakeExtender1",
-					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *v1.Node) *framework.Status {
-						if node.Name == "a" {
+					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+						if node.Node().Name == "a" {
 							return framework.NewStatus(framework.Success)
 						}
-						if node.Name == "b" {
-							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Name))
+						if node.Node().Name == "b" {
+							return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 						}
-						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Name))
+						return framework.NewStatus(framework.UnschedulableAndUnresolvable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 					}},
 				},
 				{
 					ExtenderName: "FakeExtender1",
-					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *v1.Node) *framework.Status {
-						if node.Name == "a" {
+					Predicates: []tf.FitPredicate{func(pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+						if node.Node().Name == "a" {
 							return framework.NewStatus(framework.Success)
 						}
-						return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Name))
+						return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("node %q is not allowed", node.Node().Name))
 					}},
 				},
 			},
@@ -1746,7 +1751,11 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 			}
 
 			pod := st.MakePod().Name("1").UID("1").Obj()
-			got, err := findNodesThatPassExtenders(ctx, extenders, pod, tt.nodes, tt.filteredNodesStatuses)
+			got, err := findNodesThatPassExtenders(ctx, extenders, pod, tf.BuildNodeInfos(tt.nodes), tt.filteredNodesStatuses)
+			nodes := make([]*v1.Node, len(got))
+			for i := 0; i < len(got); i++ {
+				nodes[i] = got[i].Node()
+			}
 			if tt.expectsErr {
 				if err == nil {
 					t.Error("Unexpected non-error")
@@ -1755,7 +1764,7 @@ func TestFindNodesThatPassExtenders(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				if diff := cmp.Diff(tt.expectedNodes, got); diff != "" {
+				if diff := cmp.Diff(tt.expectedNodes, nodes); diff != "" {
 					t.Errorf("filtered nodes (-want,+got):\n%s", diff)
 				}
 				if diff := cmp.Diff(tt.expectedStatuses, tt.filteredNodesStatuses, cmpOpts...); diff != "" {
@@ -1805,6 +1814,7 @@ func TestSchedulerSchedulePod(t *testing.T) {
 			registerPlugins: []tf.RegisterPluginFunc{
 				tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 				tf.RegisterFilterPlugin("TrueFilter", tf.NewTrueFilterPlugin),
+				tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 			},
 			nodes:     []string{"node1", "node2"},
@@ -1922,6 +1932,7 @@ func TestSchedulerSchedulePod(t *testing.T) {
 				tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 				tf.RegisterPreFilterPlugin(volumebinding.Name, frameworkruntime.FactoryAdapter(fts, volumebinding.New)),
 				tf.RegisterFilterPlugin("TrueFilter", tf.NewTrueFilterPlugin),
+				tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 			},
 			nodes: []string{"node1", "node2"},
@@ -2035,6 +2046,7 @@ func TestSchedulerSchedulePod(t *testing.T) {
 					"PreFilter",
 					"Filter",
 				),
+				tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 			},
 			nodes: []string{"node1", "node2", "node3"},
@@ -2308,6 +2320,7 @@ func TestSchedulerSchedulePod(t *testing.T) {
 						},
 					}, nil
 				}, "PreFilter", "Filter"),
+				tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 			},
 			nodes:              []string{"node1", "node2", "node3"},
@@ -2329,6 +2342,33 @@ func TestSchedulerSchedulePod(t *testing.T) {
 			nodes:     []string{"node1", "node2"},
 			pod:       st.MakePod().Name("ignore").UID("ignore").Obj(),
 			wantNodes: sets.New("node1", "node2"),
+		},
+		{
+			name: "test without score plugin no extra nodes are evaluated",
+			registerPlugins: []tf.RegisterPluginFunc{
+				tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
+				tf.RegisterFilterPlugin("TrueFilter", tf.NewTrueFilterPlugin),
+				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
+			},
+			nodes:              []string{"node1", "node2", "node3"},
+			pod:                st.MakePod().Name("pod1").UID("pod1").Obj(),
+			wantNodes:          sets.New("node1", "node2", "node3"),
+			wantEvaluatedNodes: ptr.To[int32](1),
+		},
+		{
+			name: "test no score plugin, prefilter plugin returning 2 nodes, only 1 node is evaluated",
+			registerPlugins: []tf.RegisterPluginFunc{
+				tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
+				tf.RegisterPreFilterPlugin(
+					"FakePreFilter",
+					tf.NewFakePreFilterPlugin("FakePreFilter", &framework.PreFilterResult{NodeNames: sets.New("node1", "node2")}, nil),
+				),
+				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
+			},
+			nodes:              []string{"node1", "node2", "node3"},
+			pod:                st.MakePod().Name("test-prefilter").UID("test-prefilter").Obj(),
+			wantNodes:          sets.New("node1", "node2"),
+			wantEvaluatedNodes: ptr.To[int32](1),
 		},
 	}
 	for _, test := range tests {
@@ -2702,8 +2742,8 @@ func TestZeroRequest(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error filtering nodes: %+v", err)
 			}
-			fwk.RunPreScorePlugins(ctx, state, test.pod, test.nodes)
-			list, err := prioritizeNodes(ctx, nil, fwk, state, test.pod, test.nodes)
+			fwk.RunPreScorePlugins(ctx, state, test.pod, tf.BuildNodeInfos(test.nodes))
+			list, err := sched.prioritizeNodes(ctx, fwk, state, test.pod, tf.BuildNodeInfos(test.nodes))
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -3099,7 +3139,10 @@ func Test_prioritizeNodes(t *testing.T) {
 			for ii := range test.extenders {
 				extenders = append(extenders, &test.extenders[ii])
 			}
-			nodesscores, err := prioritizeNodes(ctx, extenders, fwk, state, test.pod, test.nodes)
+			sched := &Scheduler{
+				Extenders: extenders,
+			}
+			nodesscores, err := sched.prioritizeNodes(ctx, fwk, state, test.pod, tf.BuildNodeInfos(test.nodes))
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
@@ -3202,6 +3245,7 @@ func TestFairEvaluationForNodes(t *testing.T) {
 		[]tf.RegisterPluginFunc{
 			tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 			tf.RegisterFilterPlugin("TrueFilter", tf.NewTrueFilterPlugin),
+			tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 			tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 		},
 		"",
@@ -3280,6 +3324,7 @@ func TestPreferNominatedNodeFilterCallCounts(t *testing.T) {
 			registerPlugins := []tf.RegisterPluginFunc{
 				tf.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 				registerFakeFilterFunc,
+				tf.RegisterScorePlugin("EqualPrioritizerPlugin", tf.NewEqualPrioritizerPlugin(), 20),
 				tf.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 			}
 			fwk, err := tf.NewFramework(
